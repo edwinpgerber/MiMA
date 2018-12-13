@@ -243,6 +243,9 @@ real            :: d608   = d378/d622
 !   <DATA NAME="raoult_sat_vap"  TYPE="logical"  DEFAULT=".false.">
 !    Reduce saturation vapor pressures to account for seawater salinity.
 !   </DATA>
+!   <DATA NAME="prevent_negative_evaporation"  TYPE="logical"  DEFAULT=".false.">
+!    Flag to prevent negative evaporation from surface.  Added by epg.
+!   </DATA>
 ! </NAMELIST>
 
 logical :: no_neg_q         = .false.  ! for backwards compatibility
@@ -254,6 +257,7 @@ logical :: use_df_stuff     = .false.
 real    :: gust_const       =  1.0
 logical :: ncar_ocean_flux  = .false.
 logical :: raoult_sat_vap   = .false.
+logical :: prevent_negative_evaporation = .false. ! epg
 
 namelist /surface_flux_nml/ no_neg_q,         &
                             use_virtual_temp, &
@@ -263,7 +267,8 @@ namelist /surface_flux_nml/ no_neg_q,         &
                             use_mixing_ratio, &
                             use_df_stuff,     &
                             ncar_ocean_flux,  &
-                            raoult_sat_vap
+                            raoult_sat_vap,   &
+                            prevent_negative_evaporation      ! epg
    
 
 
@@ -517,6 +522,20 @@ subroutine surface_flux_1d (                                           &
      q_surf     = 0.0
      w_atm      = 0.0
   endwhere
+
+  ! epg, based on modification by CIG.  Zero out any negative flux_q (negative
+  ! evaportation) and adjust parameters based on flux_q
+  if prevent_negative_evaporation then
+     
+     where(flux_q < 0.0) !added by CIG on May 31 2018; no negative evaporation
+<       flux_q = 0.0
+<       q_star = 0.0
+        q_surf = q_atm 
+     endwhere   
+
+  endif     
+
+
 
   ! calculate d(stress component)/d(atmos wind component)
   dtaudu_atm = 0.0
